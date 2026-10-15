@@ -8,7 +8,6 @@ namespace SMSConnector.ApiHost.Controllers
     /// <summary>
     /// API Gateway tiếp nhận yêu cầu gửi SMS từ LIS.
     /// Thiết kế theo nguyên tắc K.I.S.S: Chỉ làm nhiệm vụ điều phối và chuyển tiếp sang Plug-in DLL.
-    /// Cấu hình được đọc trực tiếp từ appsettings qua IConfiguration (không cần tạo class riêng).
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -16,10 +15,17 @@ namespace SMSConnector.ApiHost.Controllers
     {
         private static readonly ILog _logger = LogManager.GetLogger(typeof(SmsController));
         private readonly IConfiguration _configuration;
+        private readonly ISmsPluginFactory _pluginFactory;
+        private readonly ISmsActionLogService _actionLogService;
 
-        public SmsController(IConfiguration configuration)
+        public SmsController(
+            IConfiguration configuration,
+            ISmsPluginFactory pluginFactory,
+            ISmsActionLogService actionLogService)
         {
             _configuration = configuration;
+            _pluginFactory = pluginFactory;
+            _actionLogService = actionLogService;
         }
 
         /// <summary>
@@ -56,7 +62,9 @@ namespace SMSConnector.ApiHost.Controllers
                 return BadRequest(SMSSendResult.Failed("NO_PROVIDER", "Chưa cấu hình mã nhà mạng (ProviderCode)."));
             }
 
-            // 3. Đọc cấu hình kết nối trực tiếp từ appsettings qua IConfiguration (không cần tạo class riêng)
+            request.ProviderCode = providerCode;
+
+            // 3. Đọc cấu hình kết nối trực tiếp từ appsettings qua IConfiguration
             var providerConfig = _configuration.GetSection($"SMSSetting:Providers:{providerCode}");
             if (!providerConfig.Exists())
             {
@@ -68,7 +76,7 @@ namespace SMSConnector.ApiHost.Controllers
             try
             {
                 // 4. Lấy Plugin Adapter từ Factory và gọi gửi tin
-                var connector = SmsPluginFactory.GetConnector(providerCode);
+                var connector = _pluginFactory.GetConnector(providerCode);
                 sendResult = await connector.SendSMSAsync(request);
             }
             catch (NotSupportedException ex)
@@ -82,8 +90,8 @@ namespace SMSConnector.ApiHost.Controllers
                 sendResult = SMSSendResult.Failed("PLUGIN_EXCEPTION", ex.Message);
             }
 
-            // 5. Ghi log kiểm toán cước: gọi sang API Logging tập trung. Nếu lỗi thì chỉ ghi log4net ra file trong dự án
-            _ = Task.Run(() => SmsActionLogService.InsertLogAsync(request, sendResult, providerCode));
+            // 5. Ghi log kiểm toán cước: Đẩy vào Queue Channels xử lý ngầm (non-blocking, an toàn)
+            _actionLogService.QueueLog(request, sendResult, providerCode);
 
             // 6. Ghi trace log
             _logger.Info($"[SmsController] Gửi SMS SĐT={request.PhoneNumber}, Provider={providerCode}, Success={sendResult.IsSuccess}, Code={sendResult.ErrorCode}");
@@ -97,7 +105,7 @@ namespace SMSConnector.ApiHost.Controllers
         [HttpGet("providers")]
         public IActionResult GetLoadedProviders()
         {
-            var providers = SmsPluginFactory.GetAvailableProviders();
+            var providers = _pluginFactory.GetAvailableProviders();
             return Ok(new
             {
                 DefaultProvider = _configuration["SMSSetting:DefaultProvider"],

@@ -18,10 +18,20 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 
 // 3. Đăng ký Services
-
 builder.Services.AddControllers();
 
+// Đăng ký IHttpClientFactory
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("LoggingClient", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+
+// Đăng ký DI cho Plugin Engine và ActionLogService
+builder.Services.AddSingleton<ISmsPluginFactory, SmsPluginFactory>();
+builder.Services.AddSingleton<SmsActionLogService>();
+builder.Services.AddSingleton<ISmsActionLogService>(sp => sp.GetRequiredService<SmsActionLogService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SmsActionLogService>());
 
 builder.Services.AddCors(options =>
 {
@@ -46,18 +56,13 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// 4. Khởi tạo ActionLogService với Logging API URL
-string loggingApiUrl = builder.Configuration["LoggingApiUrl"];
-SmsActionLogService.Configure(loggingApiUrl);
-logger.Info($"[Startup] Cấu hình Logging API URL: {(string.IsNullOrWhiteSpace(loggingApiUrl) ? "(Chưa cấu hình, sẽ chỉ ghi log file bằng log4net)" : loggingApiUrl)}");
-
-
-// 5. Nạp toàn bộ Plugin DLL từ thư mục Plugins
+// 4. Nạp toàn bộ Plugin DLL từ thư mục cấu hình (hỗ trợ tự động fallback giữa Debug & Production)
 string pluginsFolder = builder.Configuration["SMSSetting:PluginsFolder"] ?? "SMSPlugins";
-logger.Info($"[Startup] Đang quét và nạp Plugins từ thư mục: '{pluginsFolder}'...");
-SmsPluginFactory.LoadPlugins(pluginsFolder, app.Services);
+logger.Info($"[Startup] Đang quét và nạp Plugins từ cấu hình: '{pluginsFolder}'...");
+var pluginFactory = app.Services.GetRequiredService<ISmsPluginFactory>();
+pluginFactory.LoadPlugins(pluginsFolder);
 
-// 6. Cấu hình HTTP Pipeline
+// 5. Cấu hình HTTP Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

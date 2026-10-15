@@ -28,9 +28,9 @@ namespace SMSConnectivity.SpeedSMS
         {
             var cfg = config.GetSection("SMSSetting:Providers:SPEEDSMS");
             _httpClient = httpClient;
-            _baseUrl = cfg["BaseUrl"] ?? null;
-            _accessToken = cfg["AccessToken"] ?? null;
-            _brandName = cfg["Brandname"] ?? null;
+            _baseUrl = cfg["BaseUrl"];
+            _accessToken = cfg["AccessToken"];
+            _brandName = cfg["Brandname"];
             
             if (int.TryParse(cfg["Timeout"], out int parsedTimeout) && parsedTimeout > 0)
             {
@@ -41,7 +41,7 @@ namespace SMSConnectivity.SpeedSMS
                 _timeout = 15;
             }
 
-            if (int.TryParse(cfg["SmsType"], out int parsedSmsType) && parsedSmsType > 1 && parsedSmsType < 6)
+            if (int.TryParse(cfg["SmsType"], out int parsedSmsType) && parsedSmsType >= 1 && parsedSmsType <= 5)
             {
                 _smsType = parsedSmsType;
             }
@@ -63,8 +63,7 @@ namespace SMSConnectivity.SpeedSMS
                 
             if (message == null || string.IsNullOrWhiteSpace(message.PhoneNumber) 
                 || string.IsNullOrWhiteSpace(message.MessageContent) 
-                || string.IsNullOrWhiteSpace(message.UserId)
-                || string.IsNullOrWhiteSpace(message.ProviderCode))
+                || string.IsNullOrWhiteSpace(message.UserId))
             {
                 return SMSSendResult.Failed("INVALID_PARAM", "Dữ liệu tin nhắn rỗng hoặc không hợp lệ.");
             }
@@ -81,10 +80,10 @@ namespace SMSConnectivity.SpeedSMS
                 to = new string[] { phone },
                 content = message.MessageContent,
                 type = _smsType,
-                sender = message.Brandname ?? _brandName
+                sender = !string.IsNullOrWhiteSpace(message.Brandname) ? message.Brandname : _brandName
             };
 
-            var endpoint = _baseUrl + "/sms/send";
+            var endpoint = $"{_baseUrl.TrimEnd('/')}/sms/send";
 
             string jsonBody = JsonSerializer.Serialize(payload);
             using var requestMessage = new HttpRequestMessage(HttpMethod.Post, endpoint);
@@ -130,7 +129,7 @@ namespace SMSConnectivity.SpeedSMS
 
                     return SMSSendResult.Failed(
                         errorCode: $"SPEEDSMS_HTTP_{(int)response.StatusCode}",
-                        errorMessage: $"SpeedSMS báo lỗi: {errorMsg}",
+                        errorMessage: errorMsg,
                         rawResponse: rawResponse
                     );
                 }
