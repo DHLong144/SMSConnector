@@ -157,7 +157,9 @@ namespace SMSConnectivity.SpeedSMS
                     {
                         if (dataProp.TryGetProperty("tranId", out var tranProp))
                         {
-                            tranId = tranProp.GetString() ?? tranProp.GetRawText();
+                            tranId = tranProp.ValueKind == JsonValueKind.String
+                                ? tranProp.GetString()
+                                : tranProp.GetRawText();
                         }
 
                         if (dataProp.TryGetProperty("totalSMS", out var totalProp) && totalProp.TryGetInt32(out int count))
@@ -167,7 +169,7 @@ namespace SMSConnectivity.SpeedSMS
                     }
 
                     return SMSSendResult.Success(
-                        messageId: tranId ?? Guid.NewGuid().ToString(),
+                        messageId: tranId,
                         rawResponse: rawResponse,
                         totalSms: totalSms
                     );
