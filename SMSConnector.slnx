@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SMSConnectivity.SpeedSMS/SMSConnectivity.SpeedSMS.csproj" />
+  <Project Path="SMSConnector.ApiHost/SMSConnector.ApiHost.csproj" />
+  <Project Path="SMSConnector.Contract/SMSConnector.Contract.csproj" />
+  <Project Path="SMSConnector.Engine/SMSConnector.Engine.csproj" />
+</Solution>

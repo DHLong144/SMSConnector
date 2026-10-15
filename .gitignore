@@ -1,0 +1,32 @@
+## Bỏ qua bin/ và obj/ ở MỌI thư mục con (không phân biệt chữ hoa/thường)
+**/[Bb]in/
+**/[Oo]bj/
+
+## Bỏ qua IDE settings ở mọi cấp thư mục
+**/.vs/
+**/.vscode/
+**/.idea/
+
+## Bỏ qua file cấu hình cá nhân của Visual Studio / MSBuild
+**/*.user
+**/*.userosscache
+**/*.suo
+**/*.sln.docstates
+
+## Bỏ qua kết quả test và publish ở các project con
+**/publish/
+
+## Bỏ qua NuGet artifacts ở các project con
+**/project.assets.json
+**/project.lock.json
+**/packages/
+
+## Bỏ qua tất cả file thư viện biên dịch (.dll) ở mọi cấp thư mục
+*.dll
+**/*.dll
+
+## Khuyến nghị: Bỏ qua thêm file debug symbol và file thực thi kèm theo
+*.pdb
+**/*.pdb
+*.exe
+**/*.exe
